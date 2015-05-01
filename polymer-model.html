@@ -1,33 +1,55 @@
-<link rel="import" href="/bower_components/polymer/polymer.html" />
-<link rel="import" href="/bower_components/core-ajax/core-ajax.html" />
+<link rel="import" href="../polymer/polymer.html" />
+<link rel="import" href="../core-ajax/core-ajax.html" />
 
 <polymer-element name="polymer-model" extends="core-ajax" attributes="baseUrl modelId model collection query">
     <script type="text/javascript">
     Polymer({
+        observe: {
+            "response": "responseReady"
+        },
         baseUrl: null,
         modelId: null,
         model: null,
-        collection: [],
-        query: {},
+        collection: null,
+        query: null,
         handleAs: "json",
-        contentType: "application/json"
+        contentType: "application/json",
 
         autoGo: function () {
             this.method = "GET";
-            this.url = this.baseUrl + this.modelId;
+            this.url = this.baseUrl;
+            if ( this.modelId ) {
+                this.url += this.modelId;
+            }
+            if ( this.query ) {
+                this.url += "?" + this.query;
+            }
             this.super( arguments );
         },
 
         go: function () {
+            if ( !this.baseUrl ) {
+                throw new Error( "No baseUrl defined" );
+            }
             this.body = ( [ "POST", "PUT" ].indexOf( this.method ) != -1 ) 
                 ? JSON.stringify( this.model ) : null;
-            return this.super( arguments );
+            var xhr = this.super( arguments );
+            xhr.action = "load"; // default, may be overridden
+            return xhr;
         },
 
         load: function () {
             this.method = "GET";
-            this.url = this.baseUrl + this.modelId;
-            return this.go();
+            this.url = this.baseUrl;
+            if ( this.modelId ) {
+                this.url += this.modelId;
+            }
+            if ( this.query ) {
+                this.url += "?" + this.query;
+            }
+            var xhr = this.go();
+            xhr.action = "load";
+            return xhr;
         },
 
         save: function () {
@@ -37,7 +59,12 @@
                 this.method = "PUT";
                 this.url += this.modelId;
             }
-            return this.go();
+            if ( this.query ) {
+                this.url += "?" + this.query;
+            }
+            var xhr = this.go();
+            xhr.action = ( this.modelId ) ? "update" : "create";
+            return xhr;
         },
 
         delete: function () {
@@ -45,7 +72,30 @@
             if ( !this.modelId ) {
                 throw new Error( "Can't delete a model without an id" );
             }
-            return this.go();
+            this.url = this.baseUrl + this.modelId;
+            if ( this.query ) {
+                this.url += "?" + this.query;
+            }
+            var xhr = this.go();
+            xhr.action = "delete";
+            return xhr;
+        },
+
+        processResponse: function ( xhr ) {
+            var response = this.evalResponse( xhr );
+            if ( xhr === this.activeRequest ) {
+                if ( Array.isArray( response ) ) {
+                    this.collection = response;
+                } else {
+                    this.model = response;
+                }
+            }
+            var ret = this.super( arguments );
+            this.fire( "model-" + xhr.action, { response: response, xhr: xhr } );
+            if ( [ "update", "create" ].indexOf( xhr.action ) != -1 ) {
+                this.fire( "model-save", { response: response, xhr: xhr } );
+            }
+            return ret;
         }
 
     })
