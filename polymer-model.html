@@ -1,0 +1,53 @@
+<link rel="import" href="/bower_components/polymer/polymer.html" />
+<link rel="import" href="/bower_components/core-ajax/core-ajax.html" />
+
+<polymer-element name="polymer-model" extends="core-ajax" attributes="baseUrl modelId model collection query">
+    <script type="text/javascript">
+    Polymer({
+        baseUrl: null,
+        modelId: null,
+        model: null,
+        collection: [],
+        query: {},
+        handleAs: "json",
+        contentType: "application/json"
+
+        autoGo: function () {
+            this.method = "GET";
+            this.url = this.baseUrl + this.modelId;
+            this.super( arguments );
+        },
+
+        go: function () {
+            this.body = ( [ "POST", "PUT" ].indexOf( this.method ) != -1 ) 
+                ? JSON.stringify( this.model ) : null;
+            return this.super( arguments );
+        },
+
+        load: function () {
+            this.method = "GET";
+            this.url = this.baseUrl + this.modelId;
+            return this.go();
+        },
+
+        save: function () {
+            this.method = "POST";
+            this.url = this.baseUrl;
+            if ( this.modelId ) {
+                this.method = "PUT";
+                this.url += this.modelId;
+            }
+            return this.go();
+        },
+
+        delete: function () {
+            this.method = "DELETE";
+            if ( !this.modelId ) {
+                throw new Error( "Can't delete a model without an id" );
+            }
+            return this.go();
+        }
+
+    })
+    </script>
+</polymer-element>
